@@ -1,6 +1,6 @@
 // ============================================================
 // player/PlaybackService.kt
-// MediaSessionService：后台播放 + 耳机线控 + 通知栏控制
+// MediaSessionService：后台播放 + 耳机线控 + 通知栏控制 + EQ
 // ============================================================
 package com.example.music.player
 
@@ -15,6 +15,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.example.music.data.EQManager
+import com.example.music.data.EQPresets
+import com.example.music.data.UserPreferencesStore
 import com.example.music.data.api.ApiHolder
 import com.example.music.data.cache.AudioCache
 import java.io.File
@@ -28,10 +31,10 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
-        // ★ 设置歌曲信息（封面 + 歌词）的磁盘缓存目录
         ApiHolder.infoCacheDir = File(filesDir, "song_info_cache")
 
         val cache = AudioCache.get(applicationContext)
+        val prefs = UserPreferencesStore(applicationContext)
 
         // 1) 底层 HTTP
         val httpFactory = OkHttpDataSource.Factory(ApiHolder.client)
@@ -50,7 +53,7 @@ class PlaybackService : MediaSessionService() {
         }
         val resolvingFactory = ResolvingDataSource.Factory(httpFactory, resolver)
 
-        // 3) 磁盘缓存（边播边存 + 支持 Range 拖动）
+        // 3) 磁盘缓存
         val cacheFactory = CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(resolvingFactory)
@@ -77,6 +80,23 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
+        // ★ ExoPlayer 构建完成后才能拿到 audioSessionId
+        try {
+            val audioSessionId = player!!.audioSessionId
+            EQManager.activePresetId = prefs.getActiveEQId()
+            EQManager.attach(audioSessionId)
+            EQManager.setEnabled(prefs.isEQEnabled())
+
+            val activeId = prefs.getActiveEQId()
+            val preset = EQPresets.byId(activeId)
+                ?: prefs.getCustomEQs().firstOrNull { it.id == activeId }
+            if (preset != null) {
+                EQManager.applyPreset(preset)
+            }
+        } catch (e: Exception) {
+            // EQ 失败不影响播放
+        }
+
         session = MediaSession.Builder(this, player!!).build()
     }
 
@@ -88,6 +108,9 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        try {
+            EQManager.detach()
+        } catch (_: Exception) {}
         session?.run {
             player.release()
             release()

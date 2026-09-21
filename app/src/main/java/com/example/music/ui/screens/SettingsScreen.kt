@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -62,13 +63,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-// 统一的图标颜色
 private val IconBlue = Color(0xFF8EC5FF)
 
 @Composable
 fun SettingsScreen(
     onReopenOnboarding: () -> Unit = {},
     onOpenPreferenceEdit: () -> Unit = {},
+    onOpenEQ: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -85,7 +86,6 @@ fun SettingsScreen(
     var autoPlayEnabled by remember { mutableStateOf(prefs.isAutoPlayEnabled()) }
     var keepScreenOnEnabled by remember { mutableStateOf(prefs.isKeepScreenOnEnabled()) }
 
-    // ★ 更新弹窗状态
     var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
     var checkingUpdate by remember { mutableStateOf(false) }
 
@@ -105,7 +105,6 @@ fun SettingsScreen(
         refreshing = false
     }
 
-    // ★ 检查更新
     fun checkUpdate() {
         if (checkingUpdate) return
         checkingUpdate = true
@@ -136,9 +135,6 @@ fun SettingsScreen(
     LaunchedEffect(Unit) { refresh() }
 
     if (!isLandscape) {
-        // ============================================================
-        // 竖屏：单列
-        // ============================================================
         Column(Modifier.fillMaxSize()) {
             Text(
                 "⚙️ 设置",
@@ -162,6 +158,7 @@ fun SettingsScreen(
                         },
                         onReopenOnboarding = onReopenOnboarding,
                         onOpenPreferenceEdit = onOpenPreferenceEdit,
+                        onOpenEQ = onOpenEQ,
                         onImportShare = { showImport = true },
                         cacheSize = cacheSize,
                         refreshing = refreshing,
@@ -175,9 +172,6 @@ fun SettingsScreen(
             }
         }
     } else {
-        // ============================================================
-        // 横屏：两列网格
-        // ============================================================
         Column(Modifier.fillMaxSize()) {
             Text(
                 "⚙️ 设置",
@@ -279,6 +273,22 @@ fun SettingsScreen(
                         modifier = Modifier.clickable { onOpenPreferenceEdit() }
                     )
                 }
+
+                // ★ EQ
+                item {
+                    ListItem(
+                        headlineContent = { Text("均衡器（EQ）", color = Color.White) },
+                        supportingContent = {
+                            Text("调节音效，适配不同耳机", color = Color(0x99FFFFFF))
+                        },
+                        leadingContent = {
+                            Icon(Icons.Default.GraphicEq, null, tint = IconBlue)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { onOpenEQ() }
+                    )
+                }
+
                 item {
                     ListItem(
                         headlineContent = { Text("导入分享码", color = Color.White) },
@@ -293,14 +303,13 @@ fun SettingsScreen(
                     )
                 }
 
-                // ★ 检查更新
                 item {
                     ListItem(
                         headlineContent = { Text("检查更新", color = Color.White) },
                         supportingContent = {
                             Text(
                                 if (checkingUpdate) "检查中…"
-                                else "从 GitHub 获取最新版本",
+                                else "从 GitHub / Gitee 获取最新版本",
                                 color = Color(0x99FFFFFF)
                             )
                         },
@@ -399,7 +408,6 @@ fun SettingsScreen(
         )
     }
 
-    // ★ 更新弹窗
     pendingUpdate?.let { info ->
         UpdateDialog(info = info, onDismiss = { pendingUpdate = null })
     }
@@ -436,9 +444,6 @@ fun SettingsScreen(
     }
 }
 
-/**
- * 竖屏用的连续设置项
- */
 @Composable
 private fun SettingsItems(
     autoPlayEnabled: Boolean,
@@ -447,6 +452,7 @@ private fun SettingsItems(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onReopenOnboarding: () -> Unit,
     onOpenPreferenceEdit: () -> Unit,
+    onOpenEQ: () -> Unit,
     onImportShare: () -> Unit,
     cacheSize: Long,
     refreshing: Boolean,
@@ -526,6 +532,19 @@ private fun SettingsItems(
             modifier = Modifier.clickable { onOpenPreferenceEdit() }
         )
 
+        // ★ EQ
+        ListItem(
+            headlineContent = { Text("均衡器（EQ）", color = Color.White) },
+            supportingContent = {
+                Text("调节音效，适配不同耳机", color = Color(0x99FFFFFF))
+            },
+            leadingContent = {
+                Icon(Icons.Default.GraphicEq, null, tint = IconBlue)
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.clickable { onOpenEQ() }
+        )
+
         HorizontalDivider(thickness = 0.5.dp, color = Color(0x33FFFFFF))
 
         ListItem(
@@ -540,13 +559,12 @@ private fun SettingsItems(
             modifier = Modifier.clickable { onImportShare() }
         )
 
-        // ★ 检查更新
         ListItem(
             headlineContent = { Text("检查更新", color = Color.White) },
             supportingContent = {
                 Text(
                     if (checkingUpdate) "检查中…"
-                    else "从 GitHub 获取最新版本",
+                    else "从 GitHub / Gitee 获取最新版本",
                     color = Color(0x99FFFFFF)
                 )
             },
@@ -594,9 +612,9 @@ private fun SettingsItems(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
         ListItem(
-            headlineContent = { Text("数据源", color = Color.White) },
+            headlineContent = { Text("后台播放", color = Color.White) },
             supportingContent = {
-                Text("yinyueku.cn", color = Color(0x99FFFFFF))
+                Text("支持锁屏 / 通知栏 / 蓝牙耳机 / 线控耳机控制", color = Color(0x99FFFFFF))
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
@@ -604,7 +622,7 @@ private fun SettingsItems(
             headlineContent = { Text("关于", color = Color.White) },
             supportingContent = {
                 Column {
-                    Text("此程序仅用于个人学习使用", color = Color(0xCCFFFFFF))
+                    Text("游戏东西群内专供", color = Color(0xCCFFFFFF))
                     Text(
                         "版本 $versionName",
                         style = MaterialTheme.typography.bodySmall,

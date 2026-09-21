@@ -5,6 +5,9 @@ import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
 
+/**
+ * 用户偏好 + 播放/搜索历史本地存储（SharedPreferences）。
+ */
 class UserPreferencesStore(context: Context) {
 
     private val prefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
@@ -26,7 +29,7 @@ class UserPreferencesStore(context: Context) {
     fun setSelectedArtists(v: Set<String>) =
         prefs.edit { putStringSet("artists", v) }
 
-    // ================= ★ 自定义喜欢的歌手 =================
+    // ================= 自定义喜欢的歌手 =================
 
     fun getCustomLikedArtists(): Set<String> =
         prefs.getStringSet("custom_liked_artists", emptySet()) ?: emptySet()
@@ -54,15 +57,70 @@ class UserPreferencesStore(context: Context) {
     fun setBlacklistKeywords(v: Set<String>) =
         prefs.edit { putStringSet("blacklist_keywords", v) }
 
-    // ================= 开关 =================
+    // ================= 自动播放开关 =================
 
     fun isAutoPlayEnabled(): Boolean = prefs.getBoolean("auto_play_enabled", true)
     fun setAutoPlayEnabled(v: Boolean) = prefs.edit { putBoolean("auto_play_enabled", v) }
 
+    // ================= 屏幕常亮开关 =================
+
     fun isKeepScreenOnEnabled(): Boolean = prefs.getBoolean("keep_screen_on", true)
     fun setKeepScreenOnEnabled(v: Boolean) = prefs.edit { putBoolean("keep_screen_on", v) }
 
-    // ================= 播放历史 =================
+    // ================= EQ 均衡器 =================
+
+    fun isEQEnabled(): Boolean = prefs.getBoolean("eq_enabled", false)
+    fun setEQEnabled(v: Boolean) = prefs.edit { putBoolean("eq_enabled", v) }
+
+    fun getActiveEQId(): String = prefs.getString("eq_active_id", "flat") ?: "flat"
+    fun setActiveEQId(id: String) = prefs.edit { putString("eq_active_id", id) }
+
+    /** 读取全部自定义 EQ */
+    fun getCustomEQs(): List<EQPreset> {
+        val s = prefs.getString("eq_custom_list", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(s)
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                val id = o.optString("id")
+                val name = o.optString("name")
+                val bandsArr = o.optJSONArray("bands") ?: return@mapNotNull null
+                val bands = (0 until bandsArr.length()).map { bandsArr.optInt(it) }
+                if (id.isBlank() || bands.isEmpty()) null
+                else EQPreset(id, name, bands, isBuiltIn = false)
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveCustomEQ(preset: EQPreset) {
+        val list = getCustomEQs().toMutableList()
+        val idx = list.indexOfFirst { it.id == preset.id }
+        if (idx >= 0) list[idx] = preset else list.add(preset)
+        persistCustomEQs(list)
+    }
+
+    fun deleteCustomEQ(id: String) {
+        val list = getCustomEQs().filterNot { it.id == id }
+        persistCustomEQs(list)
+    }
+
+    private fun persistCustomEQs(list: List<EQPreset>) {
+        val arr = JSONArray()
+        list.forEach { p ->
+            val bandsArr = JSONArray()
+            p.bands.forEach { bandsArr.put(it) }
+            arr.put(JSONObject().apply {
+                put("id", p.id)
+                put("name", p.name)
+                put("bands", bandsArr)
+            })
+        }
+        prefs.edit { putString("eq_custom_list", arr.toString()) }
+    }
+
+    // ================= 播放历史（按歌手统计） =================
 
     fun recordPlay(artist: String) {
         if (artist.isBlank()) return
@@ -144,6 +202,8 @@ class UserPreferencesStore(context: Context) {
             remove("search_history")
         }
     }
+
+    // ================= 工具 =================
 
     private fun mapToJson(map: Map<String, *>): String {
         val o = JSONObject()

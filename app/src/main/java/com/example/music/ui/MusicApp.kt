@@ -1,7 +1,7 @@
 package com.example.music.ui
 
-import android.os.Build
 import android.content.res.Configuration
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -54,6 +54,7 @@ import com.example.music.ui.components.ImportShareDialog
 import com.example.music.ui.components.MiniPlayer
 import com.example.music.ui.components.SidePlayerPanel
 import com.example.music.ui.components.UpdateDialog
+import com.example.music.ui.screens.EQScreen
 import com.example.music.ui.screens.FullPlayerScreen
 import com.example.music.ui.screens.HomeScreen
 import com.example.music.ui.screens.OnboardingScreen
@@ -75,7 +76,7 @@ fun MusicApp(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    // ============ 1) 开屏 ============
+    // 1) 开屏
     val app = MusicApp.instance
     var showSplash by remember { mutableStateOf(!app.splashShown) }
 
@@ -87,7 +88,7 @@ fun MusicApp(
         return
     }
 
-    // ============ 2) 首次引导 ============
+    // 2) 首次引导
     val prefs = remember { UserPreferencesStore(context) }
     var onboarded by remember { mutableStateOf(prefs.isOnboarded()) }
     var forceOnboarding by remember { mutableStateOf(false) }
@@ -103,18 +104,15 @@ fun MusicApp(
         return
     }
 
-    // ============ 3) 主界面 ============
+    // 3) 主界面
     val nav = rememberNavController()
     var showFullPlayer by remember { mutableStateOf(false) }
     var incomingShare by remember { mutableStateOf<String?>(null) }
-
-    // ★ 更新检查状态
     var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
 
     val currentSong by PlayerHolder.currentSong.collectAsState()
     val hasSong = currentSong != null
 
-    // ★ 启动后延迟检查更新
     LaunchedEffect(Unit) {
         delay(3000)
         try {
@@ -201,7 +199,6 @@ fun MusicApp(
             FullPlayerScreen(onClose = { showFullPlayer = false })
         }
 
-        // ★ 更新弹窗（覆盖在最上层）
         pendingUpdate?.let { info ->
             UpdateDialog(info = info, onDismiss = { pendingUpdate = null })
         }
@@ -244,11 +241,17 @@ private fun MainNavHost(
                 onReopenOnboarding = onReopenOnboarding,
                 onOpenPreferenceEdit = {
                     nav.navigate("preference_edit")
+                },
+                onOpenEQ = {
+                    nav.navigate("eq")
                 }
             )
         }
         composable("preference_edit") {
             PreferenceEditScreen(nav)
+        }
+        composable("eq") {
+            EQScreen(nav)
         }
     }
 }
@@ -318,7 +321,9 @@ private fun AppNavigationRail(
         Spacer(Modifier.height(16.dp))
 
         NavigationRailItem(
-            selected = route == "settings" || route == "preference_edit",
+            selected = route == "settings" ||
+                    route == "preference_edit" ||
+                    route == "eq",
             onClick = {
                 nav.navigate("settings") {
                     popUpTo("home")
@@ -388,7 +393,9 @@ private fun AppBottomBar(
             colors = itemColors
         )
         NavigationBarItem(
-            selected = route == "settings" || route == "preference_edit",
+            selected = route == "settings" ||
+                    route == "preference_edit" ||
+                    route == "eq",
             onClick = {
                 nav.navigate("settings") {
                     popUpTo("home")

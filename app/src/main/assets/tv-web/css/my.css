@@ -1,0 +1,252 @@
+html,body{
+  /*margin: 0;*/
+    /*background: #E3EDCD;*/
+    /*#background: #E3EDCD;;*/
+
+}
+
+.tv-body{
+  width: 100%;
+  background: #FAF9DE;
+   /* background-color: #FAF9DE; */
+  display: flex;
+  flex-direction: column;
+  /*visibility: visible;*/
+  /*height: 100vh;*/
+}
+.tv-font-2{
+    font-size: 2vw;
+}
+.tv-index{
+  width: 100%;
+  background: transparent;
+   /* background-color: #FAF9DE; */
+  /* display: flex; flex-direction: column;*/
+  position:fixed; 
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  height: 100%
+}
+.tv-notify{
+  width: 100%;
+  background-color: green;
+  position:absolute; 
+  top:0; 
+  text-align: center;
+  animation: fadeInDown 0.5s forwards;
+  animation-fill-mode: both;
+  height: 10vh;
+  padding: 2vh 0;
+  font-size: 6vh;
+    color: white;
+}
+.tv-text{
+    text-align: center;
+    font-size: 4vh;
+}
+.tv-wait{
+    width: 100vw;
+    height: 100vh;
+    position:fixed;
+    top: 0;
+    left:0;
+    background-color:rgba(0,0,0, .5); pointer-events:auto;
+    text-align: center;
+    font-size: 8vh;
+    line-height: 100vh;
+}
+.notify-less{
+    width: 100vw;
+    height: 100vh;
+    position:fixed;
+    top: 0;
+    left:0;
+
+    pointer-events:auto;
+    text-align: center;
+    font-size: 8vh;
+    line-height: 100vh;
+}
+@font-face {
+  font-family: 'tv-icon';
+  src: url('../iconfont/iconfont.woff2') format('woff2');
+}
+.tv-content{
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(5, 20%);
+}
+
+.tv-content img{
+    max-width: 100%;
+    border-radius: 1vw;
+    /* height: 90%; */
+}
+.tv-item{
+    padding: 0.5vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    font-size: 1.3vw;
+}
+
+.tv-channel{
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  flex-grow:1;
+  justify-content: space-around
+}
+.tv-tab-flex{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-grow:1;
+  justify-content: space-around
+}
+.tv-tab-grid{
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(6, 16.6%);
+}
+.tv-grid-6{
+  grid-template-columns: repeat(6, 16.6%);
+}
+.tv-grid-4{
+    grid-template-columns: repeat(4, 25%);
+}
+.tab-grid-item{
+  white-space: normal; /* 或者 pre-wrap，根据需求选择 */
+  word-break: break-all; /* 允许在任何字符之后断行 */
+}
+.tv-hide{
+  display: none;
+}
+.tv-header{
+/*  overflow-x: hidden;  justify-content: space-around;*/
+    overflow-x: auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.tv-flex-around{
+    justify-content: space-around;
+}
+.tv-menu{
+  overflow-x: hidden;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-around
+}
+.tv-btn{
+   font-size: 5vh;
+   margin:1vw 1vw;
+   padding: 0.5vh 2vw;
+    line-height: 6vh;
+   border-radius: 2vw;
+   align-content: center;
+    vertical-align: middle;
+   /* width: fit-content;*/
+    white-space: normal;
+    text-align: center;
+    color: black;
+    cursor: pointer;
+    word-spacing: normal;
+    max-width: 15vw;
+    /*background-color: #5ca9e8;*/
+    background-color:#FAF9DE;
+    /*background-color:#FAF9DE;*/
+    flex-shrink: 0;
+    font-family: "tv-icon" !important;
+    /*box-shadow: none;*/
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+    background: rgba(255, 255, 240, 0.3); /* 半透明背景 */
+    backdrop-filter: blur(10px);
+}
+.tv-btn-vw{
+  padding: 0.5vw 1vw;
+  font-size: 2.5vw;
+  margin: 0.5vw 0.3vw; 
+  border-radius: 2vw;
+}
+.tv-font-bold{
+  font-weight: bold;
+}
+.tv-btn-choose{
+  background-color: #16baaa;
+  color: white;
+}
+.tv-bg-yellow{
+  background-color:#E3EDCD;
+}
+.tv-bg-black{
+    background-color:rgb(0, 0, 0);
+}
+.tv-bg-3{
+  background-color:#333333;
+}
+.tv-front{
+  font-size: 2vw;
+}
+.tv-btn-warm{
+  background-color: #ffb800;
+}
+
+.tv-active{
+    /*background-color: #71b371;*/
+    /*background:#FAF9DE;*/
+    /*box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);*/
+    box-shadow: none;
+}
+.tv-focus {
+    border: 2px solid blue;
+    background-color :#16baaa;
+    /*background-color :#16baaa;*/
+    color: white;
+    box-shadow: 0px 0px 20px 0px rgba(0,0,0,0.5);
+    border-radius: 2vw;
+    img{
+        width: 110%;
+    }
+}
+@keyframes fadeInDown {
+  0% {
+      opacity: 0;
+      -webkit-transform: translate3d(0, -100%, 0);
+      transform: translate3d(0, -100%, 0);
+  }
+  100% {
+      opacity: 1;
+      -webkit-transform: none;
+      transform: none;
+  }
+}
+
+@keyframes scaleDraw {
+ 
+    /*定义关键帧、scaleDrew是需要绑定到选择器的关键帧名称*/
+    0% {
+      transform: scale(1);
+      /*开始为原始大小*/
+    }
+   
+    25% {
+      transform: scale(1.1);
+      /*放大1.1倍*/
+    }
+   
+    50% {
+      transform: scale(1);
+    }
+   
+    75% {
+      transform: scale(1.1);
+    }
+}

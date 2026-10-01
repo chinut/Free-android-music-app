@@ -3,11 +3,18 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- ★ 高德地图定位权限 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
@@ -20,17 +27,24 @@
         android:theme="@style/Theme.Music"
         android:usesCleartextTraffic="true">
 
+        <!-- ★ 高德地图 API Key -->
+        <meta-data
+            android:name="com.amap.api.v2.apikey"
+            android:value="8b08919091b85368eba74a46f44ad195" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|density"
             android:windowSoftInputMode="adjustResize">
+            <!-- configChanges：旋转屏幕时不让 Activity 重建。
+                 否则播放电视时一转屏，WebView 连同页面一起被销毁，画面变黑、要重新加载。 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- 接收外部文本分享（微信、QQ 等分享到本软件） -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -38,7 +52,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ★ 关键：Media3 媒体播放服务 -->
         <service
             android:name=".player.PlaybackService"
             android:exported="true"
@@ -48,7 +61,9 @@
             </intent-filter>
         </service>
 
-        <!-- ★ 自动更新：提供 APK 文件的 URI -->
+        <!-- ★ 高德定位服务 -->
+        <service android:name="com.amap.api.location.APSService" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

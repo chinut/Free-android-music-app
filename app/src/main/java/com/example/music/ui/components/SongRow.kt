@@ -37,11 +37,11 @@ fun SongRow(
     index: Int,
     song: Song,
     isCurrent: Boolean,
-    isFavorited: Boolean = false,          // ★ 新增：是否已收藏
-    showSourceTag: Boolean = true,          // ★ 新增：是否显示源标签
+    isFavorited: Boolean = false,          // ★ 是否已收藏
+    showSourceTag: Boolean = true,          // ★ 是否显示源标签
     onClick: () -> Unit,
     onDownload: () -> Unit,
-    onFavoriteToggle: () -> Unit,           // 语义变化：收藏/取消收藏
+    onFavoriteToggle: () -> Unit,           // 收藏/取消收藏
     onShare: () -> Unit = {},
     onArtistClick: (String) -> Unit = {},
 ) {
@@ -101,7 +101,7 @@ fun SongRow(
             )
         }
 
-        // ★ 源标签（可隐藏）
+        // 源标签（可隐藏）
         if (showSourceTag) {
             Text(
                 if (song.source == "tencent") "QQ"
@@ -122,7 +122,7 @@ fun SongRow(
             )
         }
 
-        // ★ 收藏 / 已收藏
+        // 收藏 / 已收藏
         IconButton(onClick = onFavoriteToggle, modifier = Modifier.size(36.dp)) {
             Icon(
                 imageVector = if (isFavorited) Icons.Default.Favorite

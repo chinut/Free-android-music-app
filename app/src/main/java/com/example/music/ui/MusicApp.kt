@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -54,14 +54,15 @@ import com.example.music.ui.components.ImportShareDialog
 import com.example.music.ui.components.MiniPlayer
 import com.example.music.ui.components.SidePlayerPanel
 import com.example.music.ui.components.UpdateDialog
+import com.example.music.ui.screens.CruiseScreen
 import com.example.music.ui.screens.EQScreen
 import com.example.music.ui.screens.FullPlayerScreen
 import com.example.music.ui.screens.HomeScreen
+import com.example.music.ui.screens.LiveTvScreen
 import com.example.music.ui.screens.OnboardingScreen
 import com.example.music.ui.screens.PlaylistDetailScreen
 import com.example.music.ui.screens.PlaylistScreen
 import com.example.music.ui.screens.PreferenceEditScreen
-import com.example.music.ui.screens.SceneScreen
 import com.example.music.ui.screens.SettingsScreen
 import com.example.music.ui.screens.SplashScreen
 import com.example.music.ui.theme.DynamicBackground
@@ -113,6 +114,9 @@ fun MusicApp(
     val currentSong by PlayerHolder.currentSong.collectAsState()
     val hasSong = currentSong != null
 
+    // 在线电视是否正在播放某个频道（决定要不要全屏铺满）
+    var tvPlayingNow by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         delay(3000)
         try {
@@ -138,59 +142,78 @@ fun MusicApp(
     val backStackEntry by nav.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route ?: "home"
 
-    Box(Modifier.fillMaxSize()) {
-        DynamicBackground {
-            if (isLandscape) {
-                Row(Modifier.fillMaxSize()) {
-                    AppNavigationRail(nav = nav, route = route)
+    // 全屏（隐藏底栏 / 迷你播放器）只针对两种情况：
+    //   1. 巡航模式
+    //   2. 在线电视「正在播放某个频道」时（视频要铺满）
+    // 电视频道列表不算全屏，它要和「发现/歌单/设置」一样带底栏，界面才统一。
+    val isCruise = route == "cruise"
+    val isTv = route.startsWith("tv")
+    val tvPlaying = isTv && tvPlayingNow
 
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    ) {
+    Box(Modifier.fillMaxSize()) {
+        if (isCruise || tvPlaying) {
+            MainNavHost(
+                nav = nav,
+                onReopenOnboarding = { forceOnboarding = true },
+                onTvPlayingChanged = { tvPlayingNow = it },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            DynamicBackground {
+                if (isLandscape) {
+                    Row(Modifier.fillMaxSize()) {
+                        AppNavigationRail(nav = nav, route = route)
+
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            MainNavHost(
+                                nav = nav,
+                                onReopenOnboarding = { forceOnboarding = true },
+                                onTvPlayingChanged = { tvPlayingNow = it },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        if (hasSong) {
+                            SidePlayerPanel(
+                                modifier = Modifier.fillMaxHeight(),
+                                width = 220.dp,
+                                onExpand = { showFullPlayer = true }
+                            )
+                        }
+                    }
+                } else {
+                    Scaffold(
+                        containerColor = Color.Transparent,
+                        bottomBar = {
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color(0x4D000000),
+                                                Color(0xB3000000)
+                                            )
+                                        )
+                                    )
+                            ) {
+                                MiniPlayer(onExpand = { showFullPlayer = true })
+                                AppBottomBar(nav = nav, route = route)
+                            }
+                        }
+                    ) { padding ->
                         MainNavHost(
                             nav = nav,
                             onReopenOnboarding = { forceOnboarding = true },
-                            modifier = Modifier.fillMaxSize()
+                            onTvPlayingChanged = { tvPlayingNow = it },
+                            modifier = Modifier.padding(padding)
                         )
                     }
-
-                    if (hasSong) {
-                        SidePlayerPanel(
-                            modifier = Modifier.fillMaxHeight(),
-                            width = 220.dp,
-                            onExpand = { showFullPlayer = true }
-                        )
-                    }
-                }
-            } else {
-                Scaffold(
-                    containerColor = Color.Transparent,
-                    bottomBar = {
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.Transparent,
-                                            Color(0x4D000000),
-                                            Color(0xB3000000)
-                                        )
-                                    )
-                                )
-                        ) {
-                            MiniPlayer(onExpand = { showFullPlayer = true })
-                            AppBottomBar(nav = nav, route = route)
-                        }
-                    }
-                ) { padding ->
-                    MainNavHost(
-                        nav = nav,
-                        onReopenOnboarding = { forceOnboarding = true },
-                        modifier = Modifier.padding(padding)
-                    )
                 }
             }
         }
@@ -222,6 +245,7 @@ fun MusicApp(
 private fun MainNavHost(
     nav: NavHostController,
     onReopenOnboarding: () -> Unit,
+    onTvPlayingChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -230,7 +254,7 @@ private fun MainNavHost(
         modifier = modifier
     ) {
         composable("home") { HomeScreen() }
-        composable("scene") { SceneScreen() }
+        composable("tv") { LiveTvScreen(onPlayingChanged = onTvPlayingChanged) }
         composable("playlists") { PlaylistScreen(nav) }
         composable("playlists/{id}") { entry ->
             val id = entry.arguments?.getString("id")?.toLongOrNull() ?: 0L
@@ -244,6 +268,9 @@ private fun MainNavHost(
                 },
                 onOpenEQ = {
                     nav.navigate("eq")
+                },
+                onOpenCruise = {
+                    nav.navigate("cruise")
                 }
             )
         }
@@ -252,6 +279,9 @@ private fun MainNavHost(
         }
         composable("eq") {
             EQScreen(nav)
+        }
+        composable("cruise") {
+            CruiseScreen(onExit = { nav.popBackStack() })
         }
     }
 }
@@ -291,15 +321,15 @@ private fun AppNavigationRail(
         Spacer(Modifier.height(16.dp))
 
         NavigationRailItem(
-            selected = route == "scene",
+            selected = route == "tv",
             onClick = {
-                nav.navigate("scene") {
+                nav.navigate("tv") {
                     popUpTo("home")
                     launchSingleTop = true
                 }
             },
-            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "情景") },
-            label = { Text("情景") },
+            icon = { Icon(Icons.Default.LiveTv, contentDescription = "电视") },
+            label = { Text("电视") },
             colors = itemColors
         )
 
@@ -369,15 +399,15 @@ private fun AppBottomBar(
             colors = itemColors
         )
         NavigationBarItem(
-            selected = route == "scene",
+            selected = route == "tv",
             onClick = {
-                nav.navigate("scene") {
+                nav.navigate("tv") {
                     popUpTo("home")
                     launchSingleTop = true
                 }
             },
-            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "情景") },
-            label = { Text("情景") },
+            icon = { Icon(Icons.Default.LiveTv, contentDescription = "电视") },
+            label = { Text("电视") },
             colors = itemColors
         )
         NavigationBarItem(

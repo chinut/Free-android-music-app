@@ -1,0 +1,12 @@
+.utv-video-full{
+    position: fixed !important;
+    z-index: 99990 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    top: 0 !important;
+    left: 0 !important;
+    right:0 !important;
+    bottom: 0 !important;
+    background-color: rgb(0, 0, 0);
+}
+

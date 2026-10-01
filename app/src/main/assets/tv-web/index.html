@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:@vue>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>油桃投屏</title>
+    <link href="css/rset.css?v=x" rel="stylesheet">
+    <link href="css/my.css?v=x" rel="stylesheet">
+    <script src="js/zepto.min.js?v=x"></script>
+    <script src="js/base.js?v=x"></script>
+    <script src="js/common.js?v=x"></script>
+    <script src="js/vuex.min.js"></script>
+    <script src="js/focus-home.js?v=x"></script>
+    <script src="js/qrcode.min.js"></script>
+    <script charset="UTF-8" id="LA_COLLECT" src="js/com/js-sdk-pro.min.js"></script>
+    <script charset="UTF-8" src="js/index.js?v=x"></script>
+</head>
+
+<body>
+    <div class="tv-body">
+        <div class="tv-body" style="height: 100%" id="tv-body" @vue:mounted="initData()">
+            <div class="tv-header" style="justify-content: space-around;">
+                <div tabindex="0"  @focus="switchChannel(channels[0])"  @click="switchChannel(channels[0])" class="tv-btn"
+                     :class="{'tv-active':tab=='see'}"
+                     id="tv-see">&#xe64d; 须知</div>
+                <div tabindex="0"  @focus="switchChannel(channels[1])"  @click="switchChannel(channels[1])" class="tv-btn"
+                     :class="{'tv-active':tab=='index'}"
+                     id="tv-index" move-down="#tv-index-content:.tv-item">&#xe6ce; 首页</div>
+                <div tabindex="0"  @focus="switchChannel(channels[2])"  @click="switchChannel(channels[2])" class="tv-btn"
+                     :class="{'tv-active':tab=='history'}"
+                     id="tv-history" move-down="#tv-history-content:.tv-btn"> &#xe63c; 历史</div>
+                <div tabindex="0"  @focus="switchChannel(channels[3])"  @click="switchChannel(channels[3])" class="tv-btn"
+                     :class="{'tv-active':tab=='set'}"
+                     id="tv-set" move-down="#tv-set-content:.tv-btn">&#xe68f; 设置</div>
+            </div>
+            <div id="tv-content">
+                <div id="tv-see-content" class="tv-tab" :style="{display:(tab == 'see' ? 'grid' : 'none')}">
+                    <div class="tv-text">
+                         还望多多支持 新软 土拨鼠大屏助手(电视) 支持苹果安卓 飞鼠遥控电视
+                    </div>
+                    <div class="tv-text">
+                        官网 地址 https://www.vonchange.com
+                   </div>
+                    <div class="tv-text">
+                        <span style="color: red">本软件无广告</span> 广告均来自各个视频平台
+                    </div>
+                    <div class="tv-content" style="grid-template-columns: repeat(5, 20%);">
+                        <div class="tv-item">
+                        </div>
+                        <div class="tv-item">
+                            <img src="img/tubo.png?tvImg=1"/><span>扫码下载土拨鼠大屏助手</span>
+                        </div>
+                        <div class="tv-item">
+                        </div>
+                        <div class="tv-item">
+                            <img src="img/mydy.jpg?tvImg=1"/><span>抖音私信或任一视频下反馈问题</span>
+                        </div>
+                    </div>
+                    <div class="tv-text">
+                        主流平台 芒果 优酷在中等性能电视或盒子还可
+                    </div>
+                    <div class="tv-text">
+                        电视或盒子不比手机 大多性能一般 也可凑合当电视直播软件
+                    </div>
+                    <div class="tv-text">
+                        ©2025  von change
+                    </div>
+                </div>
+                <div id="tv-index-content" class="tv-content" :style="{display:(tab == 'index' ? 'grid' : 'none')}">
+                    <div   v-for="item in apps" @click="appChoose(item)" :id="tvId(item.id,'app-')" class="tv-item" move-updown="5" move-up="#tv-index">
+                        <img :src="item.pic" :alt="item.name" /><span>{{item.name}}</span>
+                    </div>
+                </div>
+                <div id="tv-history-content" class="tv-tab tv-tab-grid tv-grid-4" :style="{display:(tab == 'history' ? 'grid' : 'none')}">
+                    <div v-for="item in historys"  @click="historyChoose(item)"
+                         class="tv-btn  tab-grid-item" style="white-space:normal;" move-updown="4" move-up="#tv-history">{{item.name}} {{item.remark}}</div>
+                </div>
+                <div id="tv-search-content" class="tv-tab" :style="{display:(tab == 'search' ? 'grid' : 'none')}">
+                    <div class="tv-text">
+                         请用手机在同一个局域网wifi下 微信或浏览器扫一扫二维码搜索
+                    </div>
+                    <div class="tv-content" style="grid-template-columns: repeat(3, 33%);">
+                        <div class="tv-item">
+                        </div>
+                        <div class="tv-item">
+                            <img :src="qrCode" style="width: 60vh;height: 60vh"/><span>{{qrUrl}}</span>
+                            <span>版本在2025-11-02以上支持</span>
+                        </div>
+                        <div class="tv-item">
+                        </div>
+                    </div>
+                </div>
+                <div id="tv-set-content" class="tv-tab" style="flex-direction: column;" :style="{display:(tab == 'set' ? 'flex' : 'none')}">
+                    <div v-if="!info.x5Ok&&!info.x86" class="tv-btn" @click="openX5" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        开启X5内核(会关闭应用 请手动重启后启用)</div>
+                    <div class="tv-btn" @click="closeApp" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        完全关闭应用</div>
+                    <div class="tv-btn" @click="openOkMenu" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        使用OK键调出菜单 点击{{info.openOkMenu?"关闭":"开启"}}</div>
+                    <div class="tv-btn" @click="clearCache" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        缓存大小{{info.cacheSize}} 点击清理缓存</div>
+                    <div class="tv-btn" @click="updateApk" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        {{info.version}}</div>
+                    <div class="tv-btn" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        {{info.sys}}</div>
+                    <div class="tv-btn" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        设备ID {{info.deviceId}} {{info.resVersion}}</div>
+                    <div class="tv-btn" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                         官网 https://www.vonchange.com</div>
+                    <div class="tv-btn" style="white-space:normal;margin: 1vh 0;max-width:100%;" move-updown="1" move-up="#tv-set">
+                        抖音ID: vonchange       小红书号: vonchange</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
@@ -70,6 +71,7 @@ fun SettingsScreen(
     onReopenOnboarding: () -> Unit = {},
     onOpenPreferenceEdit: () -> Unit = {},
     onOpenEQ: () -> Unit = {},
+    onOpenCruise: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -135,6 +137,9 @@ fun SettingsScreen(
     LaunchedEffect(Unit) { refresh() }
 
     if (!isLandscape) {
+        // ============================================================
+        // 竖屏：单列
+        // ============================================================
         Column(Modifier.fillMaxSize()) {
             Text(
                 "⚙️ 设置",
@@ -159,6 +164,7 @@ fun SettingsScreen(
                         onReopenOnboarding = onReopenOnboarding,
                         onOpenPreferenceEdit = onOpenPreferenceEdit,
                         onOpenEQ = onOpenEQ,
+                        onOpenCruise = onOpenCruise,
                         onImportShare = { showImport = true },
                         cacheSize = cacheSize,
                         refreshing = refreshing,
@@ -172,6 +178,9 @@ fun SettingsScreen(
             }
         }
     } else {
+        // ============================================================
+        // 横屏：两列网格
+        // ============================================================
         Column(Modifier.fillMaxSize()) {
             Text(
                 "⚙️ 设置",
@@ -187,6 +196,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // 自动播放
                 item(span = { GridItemSpan(2) }) {
                     ListItem(
                         headlineContent = { Text("启动后自动播放", color = Color.White) },
@@ -215,6 +225,7 @@ fun SettingsScreen(
                     )
                 }
 
+                // 屏幕常亮
                 item(span = { GridItemSpan(2) }) {
                     ListItem(
                         headlineContent = { Text("全屏播放时屏幕常亮", color = Color.White) },
@@ -247,6 +258,7 @@ fun SettingsScreen(
                     HorizontalDivider(thickness = 0.5.dp, color = Color(0x33FFFFFF))
                 }
 
+                // 重新选偏好
                 item {
                     ListItem(
                         headlineContent = { Text("重新选择音乐偏好", color = Color.White) },
@@ -260,11 +272,13 @@ fun SettingsScreen(
                         modifier = Modifier.clickable { onReopenOnboarding() }
                     )
                 }
+
+                // 编辑偏好 / 黑名单
                 item {
                     ListItem(
                         headlineContent = { Text("编辑偏好 / 黑名单", color = Color.White) },
                         supportingContent = {
-                            Text("增减喜欢的歌手和风格，屏蔽不喜欢的", color = Color(0x99FFFFFF))
+                            Text("增减喜欢的歌手和风格", color = Color(0x99FFFFFF))
                         },
                         leadingContent = {
                             Icon(Icons.Default.Block, null, tint = IconBlue)
@@ -274,7 +288,7 @@ fun SettingsScreen(
                     )
                 }
 
-                // ★ EQ
+                // EQ
                 item {
                     ListItem(
                         headlineContent = { Text("均衡器（EQ）", color = Color.White) },
@@ -289,6 +303,22 @@ fun SettingsScreen(
                     )
                 }
 
+                // ★ 巡航模式
+                item {
+                    ListItem(
+                        headlineContent = { Text("巡航模式", color = Color.White) },
+                        supportingContent = {
+                            Text("横屏驾驶仪表盘", color = Color(0x99FFFFFF))
+                        },
+                        leadingContent = {
+                            Icon(Icons.Default.Navigation, null, tint = IconBlue)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { onOpenCruise() }
+                    )
+                }
+
+                // 导入分享码
                 item {
                     ListItem(
                         headlineContent = { Text("导入分享码", color = Color.White) },
@@ -303,6 +333,7 @@ fun SettingsScreen(
                     )
                 }
 
+                // 检查更新
                 item {
                     ListItem(
                         headlineContent = { Text("检查更新", color = Color.White) },
@@ -325,6 +356,7 @@ fun SettingsScreen(
                     HorizontalDivider(thickness = 0.5.dp, color = Color(0x33FFFFFF))
                 }
 
+                // 缓存占用
                 item {
                     ListItem(
                         headlineContent = { Text("缓存占用", color = Color.White) },
@@ -360,6 +392,7 @@ fun SettingsScreen(
                     HorizontalDivider(thickness = 0.5.dp, color = Color(0x33FFFFFF))
                 }
 
+                // 下载目录
                 item {
                     ListItem(
                         headlineContent = { Text("下载目录", color = Color.White) },
@@ -369,6 +402,8 @@ fun SettingsScreen(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+
+                // 后台播放
                 item {
                     ListItem(
                         headlineContent = { Text("后台播放", color = Color.White) },
@@ -379,6 +414,7 @@ fun SettingsScreen(
                     )
                 }
 
+                // 关于
                 item(span = { GridItemSpan(2) }) {
                     ListItem(
                         headlineContent = { Text("关于", color = Color.White) },
@@ -453,6 +489,7 @@ private fun SettingsItems(
     onReopenOnboarding: () -> Unit,
     onOpenPreferenceEdit: () -> Unit,
     onOpenEQ: () -> Unit,
+    onOpenCruise: () -> Unit,
     onImportShare: () -> Unit,
     cacheSize: Long,
     refreshing: Boolean,
@@ -532,7 +569,6 @@ private fun SettingsItems(
             modifier = Modifier.clickable { onOpenPreferenceEdit() }
         )
 
-        // ★ EQ
         ListItem(
             headlineContent = { Text("均衡器（EQ）", color = Color.White) },
             supportingContent = {
@@ -543,6 +579,19 @@ private fun SettingsItems(
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable { onOpenEQ() }
+        )
+
+        // ★ 巡航模式
+        ListItem(
+            headlineContent = { Text("巡航模式", color = Color.White) },
+            supportingContent = {
+                Text("横屏驾驶仪表盘 + 地图 + 音乐", color = Color(0x99FFFFFF))
+            },
+            leadingContent = {
+                Icon(Icons.Default.Navigation, null, tint = IconBlue)
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.clickable { onOpenCruise() }
         )
 
         HorizontalDivider(thickness = 0.5.dp, color = Color(0x33FFFFFF))
@@ -622,7 +671,7 @@ private fun SettingsItems(
             headlineContent = { Text("关于", color = Color.White) },
             supportingContent = {
                 Column {
-                    Text("游戏东西群内专供", color = Color(0xCCFFFFFF))
+                    Text("游戏东西群内专供,请勿对外传播，仅作为群内技术交流", color = Color(0xCCFFFFFF))
                     Text(
                         "版本 $versionName",
                         style = MaterialTheme.typography.bodySmall,

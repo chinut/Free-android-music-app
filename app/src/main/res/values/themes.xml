@@ -2,5 +2,9 @@
 <resources>
     <style name="Theme.Music" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
+        <!-- 旋转时直接跳变，不要系统的缩放/淡入过渡动画。
+             Activity 声明了 configChanges（旋转不重建，WebView 才能保持播放），
+             代价是系统会播放这段过渡动画，这里关掉它。 -->
+        <item name="android:rotationAnimation">jumpcut</item>
     </style>
 </resources>

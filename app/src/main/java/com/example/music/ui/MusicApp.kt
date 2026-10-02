@@ -65,6 +65,7 @@ import com.example.music.ui.screens.PlaylistScreen
 import com.example.music.ui.screens.PreferenceEditScreen
 import com.example.music.ui.screens.SettingsScreen
 import com.example.music.ui.screens.SplashScreen
+import com.example.music.ui.screens.TvRemoteScreen
 import com.example.music.ui.theme.DynamicBackground
 import kotlinx.coroutines.delay
 
@@ -271,6 +272,9 @@ private fun MainNavHost(
                 },
                 onOpenCruise = {
                     nav.navigate("cruise")
+                },
+                onOpenTvRemote = {
+                    nav.navigate("tv_remote")
                 }
             )
         }
@@ -282,6 +286,9 @@ private fun MainNavHost(
         }
         composable("cruise") {
             CruiseScreen(onExit = { nav.popBackStack() })
+        }
+        composable("tv_remote") {
+            TvRemoteScreen(onBack = { nav.popBackStack() })
         }
     }
 }

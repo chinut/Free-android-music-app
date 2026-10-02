@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.SettingsRemote
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -72,6 +73,7 @@ fun SettingsScreen(
     onOpenPreferenceEdit: () -> Unit = {},
     onOpenEQ: () -> Unit = {},
     onOpenCruise: () -> Unit = {},
+    onOpenTvRemote: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -165,6 +167,7 @@ fun SettingsScreen(
                         onOpenPreferenceEdit = onOpenPreferenceEdit,
                         onOpenEQ = onOpenEQ,
                         onOpenCruise = onOpenCruise,
+                        onOpenTvRemote = onOpenTvRemote,
                         onImportShare = { showImport = true },
                         cacheSize = cacheSize,
                         refreshing = refreshing,
@@ -315,6 +318,21 @@ fun SettingsScreen(
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable { onOpenCruise() }
+                    )
+                }
+
+                // ★ 电视遥控（焰火TV 网络遥控）
+                item {
+                    ListItem(
+                        headlineContent = { Text("电视遥控", color = Color.White) },
+                        supportingContent = {
+                            Text("手机当遥控器控制电视上的焰火TV", color = Color(0x99FFFFFF))
+                        },
+                        leadingContent = {
+                            Icon(Icons.Default.SettingsRemote, null, tint = IconBlue)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { onOpenTvRemote() }
                     )
                 }
 
@@ -490,6 +508,7 @@ private fun SettingsItems(
     onOpenPreferenceEdit: () -> Unit,
     onOpenEQ: () -> Unit,
     onOpenCruise: () -> Unit,
+    onOpenTvRemote: () -> Unit,
     onImportShare: () -> Unit,
     cacheSize: Long,
     refreshing: Boolean,
@@ -592,6 +611,19 @@ private fun SettingsItems(
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable { onOpenCruise() }
+        )
+
+        // ★ 电视遥控（焰火TV 网络遥控）
+        ListItem(
+            headlineContent = { Text("电视遥控", color = Color.White) },
+            supportingContent = {
+                Text("手机当遥控器，控制电视上的焰火TV", color = Color(0x99FFFFFF))
+            },
+            leadingContent = {
+                Icon(Icons.Default.SettingsRemote, null, tint = IconBlue)
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.clickable { onOpenTvRemote() }
         )
 
         HorizontalDivider(thickness = 0.5.dp, color = Color(0x33FFFFFF))

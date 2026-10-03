@@ -1,6 +1,6 @@
-# 音乐库 (Free Android Music App)
+# 焰火音乐 (Free Android Music App)
 
-一个基于 Kotlin + Jetpack Compose 开发的 Android 音乐播放器，界面简洁现代，功能完整，支持在线听歌、离线缓存、歌单管理、情景模式等多种实用功能。
+一个基于 Kotlin + Jetpack Compose 开发的 Android 音乐播放器，界面简洁现代，功能完整，支持在线听歌、离线缓存、歌单管理、在线电视、电视遥控等多种实用功能。
 
 > 本项目仅供学习交流使用，音源来自第三方公开接口，请勿用于商业用途。
 
@@ -37,20 +37,31 @@
 - 已收藏歌曲显示实心红心
 - 歌单分享（生成分享码，好友粘贴导入）
 
-### 🎬 情景模式
+### 📺 在线电视
 
-根据不同场景自动匹配歌曲，共 8 种：
+内置 **34 个分类 / 808 个频道**，数据完全离线，不依赖任何在线接口。
 
-| 场景 | 说明 |
+| 分类 | 内容 |
 | --- | --- |
-| 🚗 驾驶 | 动力十足，陪你上路 |
-| 🌧 忧郁 | 让音乐陪你沉淀 |
-| 🎉 聚会 | 嗨起来不解释 |
-| 📚 学习 | 专注时刻，安静陪伴 |
-| 💪 运动 | 燃烧卡路里 |
-| 🌙 睡前 | 睡前放松一下 |
-| 💕 恋爱 | 甜蜜浪漫时刻 |
-| 📼 怀念 | 回忆当年的歌 |
+| 央视 / 央视源2 | CCTV 全系列 |
+| 卫视 | 全国 32 家省级卫视 |
+| 少儿 / 教育 | 卡通与教育频道 |
+| 各省 | 广东、山东、山西、浙江、江苏、四川、甘肃等地方台 |
+
+- **直连流走原生播放器**，可按域名补 `Referer`，解决一批防盗链频道播不了的问题
+- **自动换源**：同一家电视台在多个分类下有不同源，某个源失效时自动依次尝试备用源
+- **不退出即可换台**，支持收藏频道与清晰度切换
+- 频道列表保留底部导航，仅播放视频时全屏
+
+### 📡 电视遥控
+
+手机当遥控器，通过局域网控制电视上的「焰火TV」。
+
+- **打开即连、无需配置**：先按缓存地址连接，失败则自动扫描局域网找到电视
+- **断线自动重连**：连上后每 5 秒心跳
+- 方向键 + 确定、返回/菜单、音量 ±/静音、上一集/播放暂停/下一集
+- **发送文字到电视**：搜索框免去用遥控器一个个选字母
+- 使用前提：手机与电视在同一 WiFi，电视已开启「允许手机调试」
 
 ### 🎯 智能推荐
 
@@ -109,9 +120,9 @@
 
 ### 环境要求
 
-- Android Studio Hedgehog (2023.1) 或更新版本
-- JDK 17
-- Android SDK API 35
+- Android Studio 最新稳定版
+- JDK 21 或以上（本项目构建时使用 JDK 25，见 `gradle/gradle-daemon-jvm.properties`）
+- Android SDK API 37
 
 ### 编译步骤
 
@@ -141,14 +152,23 @@ app/src/main/java/com/example/music/
 ├── MainActivity.kt              # 主 Activity
 ├── data/                        # 数据层
 │   ├── Song.kt                  # 歌曲数据模型
-│   ├── SceneMode.kt             # 情景模式定义
 │   ├── RecommendEngine.kt       # 推荐引擎
 │   ├── UserPreferencesStore.kt  # 用户偏好存储
 │   ├── api/                     # 网络接口
 │   ├── cache/                   # 缓存管理
 │   ├── db/                      # Room 数据库（歌单）
 │   ├── share/                   # 分享码编解码
-│   └── update/                  # 自动更新
+│   ├── update/                  # 自动更新
+│   └── tv/                      # 在线电视与电视遥控
+│       ├── TvCatalog.kt         # 频道目录解析
+│       ├── TvAssets.kt          # tv-web 资源读取
+│       ├── TvStreamUrl.kt       # 地址归一化 / 站点 UA / 请求头
+│       ├── TvSourceMatcher.kt   # 同名频道多源匹配（自动换源）
+│       ├── TvWebViewClient.kt   # 资源拦截与站点脚本注入
+│       ├── TvWebBridge.kt       # _api 原生桥
+│       ├── YanhuoRemote.kt      # 电视遥控协议客户端
+│       ├── TvRemoteDiscovery.kt # 局域网自动发现电视
+│       └── TvRemotePrefs.kt     # 遥控连接设置
 ├── player/                      # 播放器
 │   ├── PlaybackService.kt       # 后台播放服务
 │   ├── PlayerHolder.kt          # 播放控制器
@@ -159,11 +179,16 @@ app/src/main/java/com/example/music/
     ├── components/              # 通用组件
     └── screens/                 # 各个页面
         ├── HomeScreen.kt        # 首页
-        ├── SceneScreen.kt       # 情景模式
+        ├── LiveTvScreen.kt      # 在线电视（频道浏览）
+        ├── TvPlayerScreen.kt    # 在线电视（播放）
+        ├── NativeStreamPlayer.kt# 直连流原生播放器
+        ├── TvRemoteScreen.kt    # 电视遥控
         ├── PlaylistScreen.kt    # 歌单管理
         ├── FullPlayerScreen.kt  # 全屏播放器
         ├── SettingsScreen.kt    # 设置
         └── ...
+
+app/src/main/assets/tv-web/      # 在线电视前端资源（移植自 utao，118 个文件）
 ```
 
 ---
@@ -174,7 +199,8 @@ app/src/main/java/com/example/music/
 | --- | --- |
 | 语言 | Kotlin |
 | UI | Jetpack Compose + Material 3 |
-| 播放 | AndroidX Media3 (ExoPlayer) |
+| 播放 | AndroidX Media3 (ExoPlayer + HLS) |
+| 在线电视 | WebView + HLS 注入脚本（资源来自 utao） |
 | 数据库 | Room |
 | 网络 | OkHttp |
 | 图片 | Coil |
@@ -189,7 +215,13 @@ app/src/main/java/com/example/music/
 
 （可以在这里添加应用截图，效果更好）
 
-> 建议截图：首页推荐、全屏播放器、歌单管理、情景模式、设置页
+> 建议截图：首页推荐、全屏播放器、歌单管理、在线电视、电视遥控、设置页
+
+---
+
+## 📋 更新日志
+
+各版本的详细更新内容见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
@@ -215,9 +247,10 @@ app/src/main/java/com/example/music/
 - [Jetpack Compose](https://developer.android.com/jetpack/compose) - 现代声明式 UI 框架
 - [Coil](https://github.com/coil-kt/coil) - Kotlin 优先的图片加载库
 - [Room](https://developer.android.com/training/data-storage/room) - Android 官方 ORM 框架
-- <https://www.yinyueku.cn/> -音乐库网站的制作者，虽然我并不认是他
+- [utao / 油桃TV](https://github.com/VonChange/utao) - 在线电视功能的实现思路参考
+- <https://www.yinyueku.cn/> - 音乐库网站的制作者，虽然我并不认识他
 - 所有开源社区的贡献者
-- 我家的果冻 - APP的图标贡献者，实在是不会作图  ：）
+- 我家的果冻 - 早期 APP 图标贡献者，实在是不会作图 ：）
 
 ---
 

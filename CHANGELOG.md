@@ -5,6 +5,24 @@
 
 > 说明：`versionCode` 以各版本**实际发布时**的值为准。早期几个版本的 tag 提交里 `build.gradle.kts` 尚未升号，故与发布值不一致。
 
+## ⚠️ 发版必读：Release 描述里必须写 versionCode
+
+App 的自动更新（[UpdateChecker.kt](app/src/main/java/com/example/music/data/update/UpdateChecker.kt)）是这样判断新版本的：
+
+1. 调 GitHub / Gitee 的 `releases/latest` 接口
+2. 从 **Release 描述正文**里用正则 `versionCode[:\s=]+(\d+)` 解析版本号
+3. **解析不到（=0）就直接判定「无更新」**，即使 tag 和 APK 都存在也不会提示
+
+所以每次发版，**描述正文第一行必须写**：
+
+```
+versionCode: <数字>
+```
+
+例如 `versionCode: 6`。少写这一行，用户就永远收不到升级提示。
+
+（v1.4.0 初次发布时就漏了这一行，导致自动升级失效，已补上。）
+
 ---
 
 ## v1.4.0 — 2026-10-02

@@ -80,20 +80,31 @@ fun TvRemoteScreen(onBack: () -> Unit) {
     var connectedHost by remember { mutableStateOf("") }
     var found by remember { mutableStateOf<List<TvRemoteDiscovery.Found>>(emptyList()) }
     var picking by remember { mutableStateOf(false) }
+    /** 正在连的是哪台（选择列表里显示进度，避免点了没反应的感觉） */
+    var connectingHost by remember { mutableStateOf<String?>(null) }
+    /** 选择失败的原因，显示在选择列表里 */
+    var pickError by remember { mutableStateOf("") }
     var textToSend by remember { mutableStateOf("") }
     var sentHint by remember { mutableStateOf("") }
 
     /** 选中某台电视并连上。 */
-    suspend fun useTv(host: String, byUser: Boolean) {
-        val c = YanhuoRemote(host = host, port = prefs.port, token = prefs.token)
-        if (c.ping()) {
+    suspend fun useTv(host: String, port: Int, byUser: Boolean) {
+        connectingHost = host
+        pickError = ""
+        val c = YanhuoRemote(host = host, port = port, token = prefs.token)
+        val ok = c.ping()
+        connectingHost = null
+        if (ok) {
+            prefs.port = port
             prefs.select(host, byUser)
             client = c
-            connectedHost = host
+            connectedHost = if (port == TvRemotePrefs.DEFAULT_PORT) host else "$host:$port"
             connected = true
             picking = false
         } else {
+            // 留在选择列表并说明原因，用户可以直接改选另一台
             connected = false
+            pickError = "连不上 $host:$port，可能电视关机或不在同一网络"
         }
     }
 
@@ -129,7 +140,7 @@ fun TvRemoteScreen(onBack: () -> Unit) {
             list.isEmpty() -> connected = false
 
             // 只有一台：直接用，无需打扰用户
-            list.size == 1 -> useTv(list[0].host, byUser = false)
+            list.size == 1 -> useTv(list[0].host, list[0].port, byUser = false)
 
             else -> {
                 // 多台：之前选过的那台若还在，继续用它
@@ -261,12 +272,14 @@ fun TvRemoteScreen(onBack: () -> Unit) {
         if (picking) {
             TvPickerOverlay(
                 devices = found,
-                onPick = { scope.launch { useTv(it.host, byUser = true) } },
+                connectingHost = connectingHost,
+                error = pickError,
+                onPick = { scope.launch { useTv(it.host, it.port, byUser = true) } },
                 onRescan = { scope.launch { connect() } },
-                onBlink = { host ->
+                onBlink = { d ->
                     scope.launch {
                         // 「亮一下」：只把音量 +1 再 -1，不改变任何实质状态，用来确认是哪台电视
-                        val c = YanhuoRemote(host = host, port = prefs.port, token = prefs.token)
+                        val c = YanhuoRemote(host = d.host, port = d.port, token = prefs.token)
                         c.volumeUp()
                         delay(200)
                         c.volumeDown()
@@ -283,23 +296,42 @@ fun TvRemoteScreen(onBack: () -> Unit) {
  * 调试用：从启动 Intent 的 `tvRemoteDemo` extra 构造假的电视列表。
  *
  * ```
+ * # 只验证界面（虚构地址，连不上）
  * adb shell am start -n com.example.music/.MainActivity -e tvRemoteDemo 3
+ *
+ * # 用真实可达的地址，可以真连上、真按键（支持 IP 或 IP:端口，逗号分隔）
+ * adb shell am start -n com.example.music/.MainActivity -e tvRemoteDemo 2 \
+ *     -e tvRemoteHosts "10.0.2.2:8899,10.0.2.2:8900"
  * ```
  *
- * 参数是台数（0 或未传表示不启用）。仅用于在没有多台真实电视时验证选择界面。
+ * - `tvRemoteDemo`：台数（0 或未传表示不启用）
+ * - `tvRemoteHosts`：可选，逗号分隔；支持 `IP` 或 `IP:端口`
  */
 private fun demoDevices(context: android.content.Context): List<TvRemoteDiscovery.Found>? {
     val activity = context as? android.app.Activity ?: return null
     val n = activity.intent?.getStringExtra("tvRemoteDemo")?.toIntOrNull() ?: return null
     if (n <= 0) return null
+
+    val count = n.coerceAtMost(4)
+    val custom = activity.intent?.getStringExtra("tvRemoteHosts")
+        ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
+        ?.takeIf { it.isNotEmpty() }
+
+    // 默认用虚构地址（只验证界面）；给了 tvRemoteHosts 就用真地址，可以真正连上
+    val specs = custom ?: (1..count).map { "192.168.1.${10 * it}" }
+
     // 故意用同一个设备名，模拟「家里几台电视都叫焰火TV」的真实情况：
-    // 名称无法区分时，只能靠 IP 和「亮一下」来辨认
-    return (1..n.coerceAtMost(4)).map { i ->
+    // 名称无法区分时，只能靠 IP/端口 和「亮一下」来辨认
+    return specs.take(count).map { spec ->
+        val host = spec.substringBeforeLast(':', spec)
+        val port = spec.substringAfterLast(':', "")
+            .toIntOrNull() ?: TvRemotePrefs.DEFAULT_PORT
         TvRemoteDiscovery.Found(
-            host = "192.168.1.${10 * i}",
+            host = host,
             app = "焰火TV",
             protocol = 1,
             screen = "home",
+            port = port,
         )
     }
 }
@@ -397,9 +429,11 @@ private fun RemoteHeader(
 @Composable
 private fun TvPickerOverlay(
     devices: List<TvRemoteDiscovery.Found>,
+    connectingHost: String?,
+    error: String,
     onPick: (TvRemoteDiscovery.Found) -> Unit,
     onRescan: () -> Unit,
-    onBlink: (String) -> Unit,
+    onBlink: (TvRemoteDiscovery.Found) -> Unit,
 ) {
     Box(
         Modifier
@@ -428,13 +462,17 @@ private fun TvPickerOverlay(
                 fontSize = 12.sp
             )
 
+            if (error.isNotEmpty()) {
+                Text(error, color = Color(0xFFFF9A9A), fontSize = 12.sp)
+            }
+
             devices.forEach { d ->
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(BtnBg)
-                        .clickable { onPick(d) }
+                        .clickable(enabled = connectingHost == null) { onPick(d) }
                         .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -442,16 +480,24 @@ private fun TvPickerOverlay(
                         Text(d.title, color = Color.White, fontSize = 15.sp)
                         Text(d.subtitle, color = Color(0x88FFFFFF), fontSize = 12.sp)
                     }
-                    Text(
-                        "亮一下",
-                        color = Accent,
-                        fontSize = 13.sp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(AccentSoft)
-                            .clickable { onBlink(d.host) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
+                    if (connectingHost == d.host) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Accent,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            "亮一下",
+                            color = Accent,
+                            fontSize = 13.sp,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AccentSoft)
+                                .clickable(enabled = connectingHost == null) { onBlink(d) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
 

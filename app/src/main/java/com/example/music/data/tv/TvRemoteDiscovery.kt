@@ -33,12 +33,15 @@ object TvRemoteDiscovery {
         val app: String,
         val protocol: Int,
         val screen: String,
+        /** 该电视的端口。允许每台不同（协议里端口是可配的）。 */
+        val port: Int = TvRemotePrefs.DEFAULT_PORT,
     ) {
         /** 列表里展示的标题；设备没自报名字时退回 IP。 */
         val title: String get() = app.ifBlank { "焰火TV" }
 
-        /** 副标题，始终显示 IP，多台同型号电视时靠它区分。 */
-        val subtitle: String get() = host
+        /** 副标题：始终显示 地址[:端口]，多台同型号电视时靠它区分。 */
+        val subtitle: String
+            get() = if (port == TvRemotePrefs.DEFAULT_PORT) host else "$host:$port"
     }
 
     /**
@@ -72,7 +75,13 @@ object TvRemoteDiscovery {
                 async {
                     val info = YanhuoRemote(host = ip, port = port).pingInfo()
                     if (info == null) null
-                    else Found(host = ip, app = info.app, protocol = info.protocol, screen = info.screen)
+                    else Found(
+                        host = ip,
+                        app = info.app,
+                        protocol = info.protocol,
+                        screen = info.screen,
+                        port = port,
+                    )
                 }
             }.awaitAll().filterNotNull()
         }.sortedBy { it.host.substringAfterLast('.').toIntOrNull() ?: 0 }

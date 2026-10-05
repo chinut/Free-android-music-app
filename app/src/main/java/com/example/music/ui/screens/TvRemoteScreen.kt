@@ -87,6 +87,11 @@ fun TvRemoteScreen(onBack: () -> Unit) {
     var picking by remember { mutableStateOf(false) }
     /** 正在连的是哪台（选择列表里显示进度，避免点了没反应的感觉） */
     var connectingHost by remember { mutableStateOf<String?>(null) }
+    var connectingPort by remember { mutableStateOf<Int?>(null) }
+    /** 正在「响一声」的是哪台（key = 地址:端口） */
+    var locatingKey by remember { mutableStateOf<String?>(null) }
+    /** 「响一声」成功的那个 key，用来在列表里显示「就是这台」 */
+    var locateResult by remember { mutableStateOf<String?>(null) }
     /** 选择失败的原因，显示在选择列表里 */
     var pickError by remember { mutableStateOf("") }
     var textToSend by remember { mutableStateOf("") }
@@ -108,10 +113,12 @@ fun TvRemoteScreen(onBack: () -> Unit) {
     /** 选中某台电视并连上。 */
     suspend fun useTv(host: String, port: Int, byUser: Boolean) {
         connectingHost = host
+        connectingPort = port
         pickError = ""
         val c = YanhuoRemote(host = host, port = port, token = prefs.token)
         val ok = c.ping()
         connectingHost = null
+        connectingPort = null
         if (ok) {
             prefs.port = port
             prefs.select(host, byUser)
@@ -318,16 +325,31 @@ fun TvRemoteScreen(onBack: () -> Unit) {
             TvPickerOverlay(
                 devices = found,
                 connectingHost = connectingHost,
+                connectingPort = connectingPort,
+                locatingKey = locatingKey,
+                locateResult = locateResult,
                 error = pickError,
                 onPick = { scope.launch { useTv(it.host, it.port, byUser = true) } },
                 onRescan = { scope.launch { connect() } },
-                onBlink = { d ->
+                onLocate = { d ->
+                    val k = "${d.host}:${d.port}"
+                    locatingKey = k
+                    locateResult = null
                     scope.launch {
-                        // 「亮一下」：只把音量 +1 再 -1，不改变任何实质状态，用来确认是哪台电视
+                        // 「响一声」：把音量 +1 再 −1，净效果为 0，但电视会弹出音量条，
+                        // 用户一看哪台有反应就知道是哪台。不能改其它状态。
                         val c = YanhuoRemote(host = d.host, port = d.port, token = prefs.token)
-                        c.volumeUp()
-                        delay(200)
+                        val ok = c.volumeUp() != null
+                        if (ok) delay(220)
                         c.volumeDown()
+                        locatingKey = null
+                        if (ok) {
+                            locateResult = k
+                            delay(6000)
+                            if (locateResult == k) locateResult = null
+                        } else {
+                            pickError = "${d.subtitle} 没响应，可能已关机或不在同一网络"
+                        }
                     }
                 },
             )
@@ -475,11 +497,17 @@ private fun RemoteHeader(
 private fun TvPickerOverlay(
     devices: List<TvRemoteDiscovery.Found>,
     connectingHost: String?,
+    connectingPort: Int?,
+    locatingKey: String?,
+    locateResult: String?,
     error: String,
     onPick: (TvRemoteDiscovery.Found) -> Unit,
     onRescan: () -> Unit,
-    onBlink: (TvRemoteDiscovery.Found) -> Unit,
+    onLocate: (TvRemoteDiscovery.Found) -> Unit,
 ) {
+    // 同一地址上可能有两台电视（端口不同），所以必须用 地址+端口 一起做身份
+    fun keyOf(d: TvRemoteDiscovery.Found) = "${d.host}:${d.port}"
+
     Box(
         Modifier
             .fillMaxSize()
@@ -501,8 +529,18 @@ private fun TvPickerOverlay(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
+            // 名字能不能区分要看电视端自报什么：协议里的 app 字段如果都是「焰火TV」，
+            // 就只能靠地址区分。据实提示，别把话说死。
+            val namesDistinct = devices.map { it.title }.distinct().size == devices.size
             Text(
-                "选一台来控制。不确定是哪台就点「亮一下」，那台电视的音量会动一下",
+                if (namesDistinct) {
+                    "按名字或下面的地址选一台控制。拿不准是哪台时，点「响一声」——" +
+                        "被点的那台会放一下音量，你看哪台有反应就是它。"
+                } else {
+                    "这几台电视自报的名字相同（协议里没有设备名），只能按下面的地址区分。" +
+                        "拿不准哪台是哪台时，点「响一声」——被点的那台会放一下音量，" +
+                        "你看哪台有反应就是它。"
+                },
                 color = Color(0x88FFFFFF),
                 fontSize = 12.sp
             )
@@ -512,12 +550,14 @@ private fun TvPickerOverlay(
             }
 
             devices.forEach { d ->
+                val k = keyOf(d)
+                val rowBusy = connectingHost == d.host && (connectingPort == null || connectingPort == d.port)
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(BtnBg)
-                        .clickable(enabled = connectingHost == null) { onPick(d) }
+                        .background(if (locateResult == k) Color(0x337CE38B) else BtnBg)
+                        .clickable(enabled = connectingHost == null && locatingKey == null) { onPick(d) }
                         .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -525,21 +565,38 @@ private fun TvPickerOverlay(
                         Text(d.title, color = Color.White, fontSize = 15.sp)
                         Text(d.subtitle, color = Color(0x88FFFFFF), fontSize = 12.sp)
                     }
-                    if (connectingHost == d.host) {
-                        CircularProgressIndicator(
+
+                    when {
+                        rowBusy -> CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             color = Accent,
                             strokeWidth = 2.dp
                         )
-                    } else {
-                        Text(
-                            "亮一下",
+
+                        locatingKey == k -> CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Accent,
+                            strokeWidth = 2.dp
+                        )
+
+                        // 刚点过「响一声」并成功 → 明确告诉用户就是这台
+                        locateResult == k -> Text(
+                            "✓ 就是这台",
+                            color = OkGreen,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+
+                        else -> Text(
+                            "响一声",
                             color = Accent,
                             fontSize = 13.sp,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(AccentSoft)
-                                .clickable(enabled = connectingHost == null) { onBlink(d) }
+                                .clickable(enabled = connectingHost == null && locatingKey == null) {
+                                    onLocate(d)
+                                }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         )
                     }
@@ -553,7 +610,7 @@ private fun TvPickerOverlay(
                     fontSize = 13.sp,
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .clickable { onRescan() }
+                        .clickable(enabled = locatingKey == null) { onRescan() }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }

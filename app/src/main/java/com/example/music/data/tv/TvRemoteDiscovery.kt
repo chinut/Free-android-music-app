@@ -1,10 +1,11 @@
-package com.example.music.data.tv
+﻿package com.example.music.data.tv
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.net.Inet4Address
 import java.net.InetSocketAddress
@@ -88,10 +89,18 @@ object TvRemoteDiscovery {
         android.util.Log.i("TvRemoteDiscovery", "端口候选 ${candidates.size} 个：$candidates")
 
         // 2) 逐个走协议 ping 确认真是焰火TV。每台电视只 ping 它的那个端口一次。
+        //
+        //    刚扫完端口段时，同地址上会有一批连接刚刚建了又断，
+        //    偶发会出现「端口探测通过、紧接着的 ping 无响应」——
+        //    这会让一台真实电视被漏掉。所以失败后稍等一下重试一次。
         val verified = coroutineScope {
             candidates.map { (host, port) ->
                 async {
-                    val info = YanhuoRemote(host = host, port = port).pingInfo()
+                    var info = YanhuoRemote(host = host, port = port).pingInfo()
+                    if (info == null) {
+                        delay(250)
+                        info = YanhuoRemote(host = host, port = port).pingInfo()
+                    }
                     android.util.Log.i("TvRemoteDiscovery", "ping $host:$port → ${info?.app ?: "无响应"}")
                     if (info == null) null
                     else Found(

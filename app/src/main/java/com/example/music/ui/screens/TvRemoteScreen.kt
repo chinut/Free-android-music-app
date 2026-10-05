@@ -133,7 +133,13 @@ fun TvRemoteScreen(onBack: () -> Unit) {
         }
     }
 
-    suspend fun connect() {
+    /**
+     * 连接电视。
+     *
+     * @param forcePick 点「切换」时为 true：跳过"连回上次那台"的捷径，直接弹出列表，
+     *                  否则用户点了会毫无变化（又连回同一台）。
+     */
+    suspend fun connect(forcePick: Boolean = false) {
         connected = null
         picking = false
         found = emptyList()
@@ -147,12 +153,19 @@ fun TvRemoteScreen(onBack: () -> Unit) {
             return
         }
 
-        // 1) 用户选定过的那台优先；只有用户明确选过才跳过挑选
-        if (prefs.configured && prefs.userChosen) {
+        // 1) 用户选定过的那台优先，连上就直接进遥控器。
+        //
+        //    forcePick（点「切换」）时必须跳过这一步：否则会又连回当前这台，
+        //    界面毫无变化，用户看到的就是"点切换没反应"。
+        if (!forcePick && prefs.configured && prefs.userChosen) {
             val c = prefs.client()
             if (c != null && c.ping()) {
                 client = c
-                connectedHost = prefs.host
+                connectedHost = if (prefs.port == TvRemotePrefs.DEFAULT_PORT) {
+                    prefs.host
+                } else {
+                    "${prefs.host}:${prefs.port}"
+                }
                 connected = true
                 return
             }
@@ -162,20 +175,22 @@ fun TvRemoteScreen(onBack: () -> Unit) {
         //    边扫边显示：家里电视多、端口段也要扫，整体耗时会比只扫 8899 长
         val list = TvRemoteDiscovery.discoverAll(context, prefs.port) { partial ->
             found = partial
-            // 还没扫完就已经不止一台了，先让用户挑着，不用干等
-            if (partial.size > 1 && !prefs.userChosen) picking = true
+            // 多点几台就出来：边扫边显示，不用干等
+            if (partial.size > 1 && (!prefs.userChosen || forcePick)) picking = true
         }
         found = list
         when {
             list.isEmpty() -> connected = false
 
-            // 只有一台：直接用，无需打扰用户
-            list.size == 1 -> useTv(list[0].host, list[0].port, byUser = false)
+            // 只有一台且不是来切换的：直接用，无需打扰用户
+            list.size == 1 && !forcePick -> useTv(list[0].host, list[0].port, byUser = false)
 
+            // 点「切换」时即使只有一台也把列表显示出来，
+            // 让用户看到确实只有这一台，而不是"点了没反应"
             else -> {
-                // 多台：之前选过的那台若还在，继续用它
+                // 多台：之前选过的那台若还在，继续用它（切换时除外）
                 val saved = TvRemoteDiscovery.findSaved(list, prefs.host, prefs.port)
-                val savedOk = if (prefs.userChosen && saved != null) {
+                val savedOk = if (!forcePick && prefs.userChosen && saved != null) {
                     YanhuoRemote(host = saved.host, port = saved.port, token = prefs.token).ping()
                 } else false
 
@@ -185,7 +200,7 @@ fun TvRemoteScreen(onBack: () -> Unit) {
                     connected = true
                     picking = false
                 } else {
-                    // 没选过、或选过的那台不在了 → 让用户挑
+                    // 没选过、或选过的那台不在了、或用户主动要切换 → 让用户挑
                     picking = true
                     connected = false
                 }
@@ -254,8 +269,8 @@ fun TvRemoteScreen(onBack: () -> Unit) {
                 picking = picking,
                 connectedHost = connectedHost,
                 onBack = onBack,
-                onRetry = { scope.launch { connect() } },
-                onSwitch = { scope.launch { connect() } },
+                onRetry = { scope.launch { connect(forcePick = true) } },
+                onSwitch = { scope.launch { connect(forcePick = true) } },
             )
 
             if (connected == false && !picking) {
@@ -330,7 +345,7 @@ fun TvRemoteScreen(onBack: () -> Unit) {
                 locateResult = locateResult,
                 error = pickError,
                 onPick = { scope.launch { useTv(it.host, it.port, byUser = true) } },
-                onRescan = { scope.launch { connect() } },
+                onRescan = { scope.launch { connect(forcePick = true) } },
                 onLocate = { d ->
                     val k = "${d.host}:${d.port}"
                     locatingKey = k

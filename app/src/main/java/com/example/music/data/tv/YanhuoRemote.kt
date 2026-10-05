@@ -71,6 +71,31 @@ class YanhuoRemote(
         return runCatching { JSONObject(body).optInt("protocol", 0) }.getOrDefault(0)
     }
 
+    /** 探测结果：用来区分家里多台电视。 */
+    data class PingInfo(
+        /** 设备自报的应用名，协议里是 "app" 字段，例如「焰火TV」。 */
+        val app: String = "",
+        val protocol: Int = 0,
+        val screen: String = "",
+    )
+
+    /**
+     * 探测并读回设备标识；不在线返回 null。
+     *
+     * 多台电视时靠这个区分：把每台返回的 [PingInfo] 展示给用户挑。
+     */
+    suspend fun pingInfo(): PingInfo? {
+        val body = get("/api/remote/ping") ?: return null
+        return runCatching {
+            val o = JSONObject(body)
+            PingInfo(
+                app = o.optString("app", ""),
+                protocol = o.optInt("protocol", 0),
+                screen = o.optString("screen", ""),
+            )
+        }.getOrNull()
+    }
+
     // ==================== 状态 ====================
 
     /** 读当前状态（音量、界面）。 */

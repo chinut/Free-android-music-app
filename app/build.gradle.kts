@@ -20,8 +20,8 @@ android {
         applicationId = "com.example.music"
         minSdk = 24
         targetSdk = 37
-        versionCode = 10
-        versionName = "1.5.3"
+        versionCode = 11
+        versionName = "1.5.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -115,6 +115,9 @@ dependencies {
 
     // ===== 测试 =====
     testImplementation(libs.junit)
+    // 单元测试里 android.jar 的 org.json 是空壳（调用即抛 RuntimeException）。
+    // 遥控协议要测 JSON 解析，所以补一个真实的 org.json 实现。
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

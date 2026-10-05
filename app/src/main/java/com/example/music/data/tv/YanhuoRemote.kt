@@ -71,13 +71,30 @@ class YanhuoRemote(
         return runCatching { JSONObject(body).optInt("protocol", 0) }.getOrDefault(0)
     }
 
-    /** 探测结果：用来区分家里多台电视。 */
+    /**
+     * 探测结果：用来区分家里多台电视。
+     *
+     * 向后兼容：老版本电视端只返回 `app` / `protocol` / `screen`，
+     * 新版本额外返回 `name`（用户设的电视名）和 `port`（实际监听端口）。
+     * 缺哪个字段都不影响使用，只是退回到旧行为。
+     */
     data class PingInfo(
-        /** 设备自报的应用名，协议里是 "app" 字段，例如「焰火TV」。 */
-        val app: String = "",
+        /** 设备自报的名字。新协议是 "name"，老协议是 "app"。 */
+        val name: String = "",
         val protocol: Int = 0,
         val screen: String = "",
-    )
+        /** 电视实际监听的端口；老版本不返回，为 0。 */
+        val port: Int = 0,
+    ) {
+        /** 展示用的标题；两个字段都没有时退回默认名。 */
+        val title: String get() = name.ifBlank { DEFAULT_NAME }
+
+        val hasPort: Boolean get() = port in 1..65535
+
+        companion object {
+            const val DEFAULT_NAME = "焰火TV"
+        }
+    }
 
     /**
      * 探测并读回设备标识；不在线返回 null。
@@ -88,10 +105,13 @@ class YanhuoRemote(
         val body = get("/api/remote/ping") ?: return null
         return runCatching {
             val o = JSONObject(body)
+            // name 优先（新协议），退回 app（老协议）
+            val name = o.optString("name", "").ifBlank { o.optString("app", "") }
             PingInfo(
-                app = o.optString("app", ""),
+                name = name,
                 protocol = o.optInt("protocol", 0),
                 screen = o.optString("screen", ""),
+                port = o.optInt("port", 0),
             )
         }.getOrNull()
     }

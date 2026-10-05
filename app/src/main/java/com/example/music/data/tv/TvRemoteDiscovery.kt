@@ -1,4 +1,4 @@
-﻿package com.example.music.data.tv
+package com.example.music.data.tv
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -80,43 +80,72 @@ object TvRemoteDiscovery {
 
         val hosts = (1..254).map { "$prefix.$it" }.filter { it != local }
 
-        // 一次把「地址 × 端口段」扫完。
-        //
-        // 为什么端口段也要扫：电视端的调试服务在 8899 被占用时会自动退让到
-        // 8900/8901…（最多 20 个），所以家里第二台电视完全可能在 8900，
-        // 只扫 8899 就会漏掉它 —— 这正是之前"只识别 1 台"的原因。
-        val candidates = scanHosts(hosts, (basePort until basePort + PORT_SCAN_SIZE).toList())
-        android.util.Log.i("TvRemoteDiscovery", "端口候选 ${candidates.size} 个：$candidates")
+        // 第一步：只扫默认端口。
+        // 新版本电视端会在响应里报出**实际**端口，所以在默认端口应答了就够，
+        // 不必再扫端口段 —— 这让扫描从 28 秒降到 2~3 秒。
+        val defaultHits = scanHosts(hosts, listOf(basePort))
 
-        // 2) 逐个走协议 ping 确认真是焰火TV。每台电视只 ping 它的那个端口一次。
-        //
-        //    刚扫完端口段时，同地址上会有一批连接刚刚建了又断，
-        //    偶发会出现「端口探测通过、紧接着的 ping 无响应」——
-        //    这会让一台真实电视被漏掉。所以失败后稍等一下重试一次。
-        val verified = coroutineScope {
-            candidates.map { (host, port) ->
+        // 逐个走协议 ping 确认真是焰火TV，并读回标识。
+        // 失败后等 250ms 重试一次：刚扫完端口时同地址上有一批连接刚建了又断，
+        // 偶发会出现「端口探测通过、紧接着的 ping 无响应」，那会漏掉一台真实电视。
+        suspend fun verify(pairs: List<Pair<String, Int>>): List<Found> = coroutineScope {
+            pairs.map { (host, port) ->
                 async {
-                    var info = YanhuoRemote(host = host, port = port).pingInfo()
+                    val api = YanhuoRemote(host = host, port = port)
+                    var info = api.pingInfo()
                     if (info == null) {
                         delay(250)
-                        info = YanhuoRemote(host = host, port = port).pingInfo()
+                        info = api.pingInfo()
                     }
-                    android.util.Log.i("TvRemoteDiscovery", "ping $host:$port → ${info?.app ?: "无响应"}")
-                    if (info == null) null
-                    else Found(
-                        host = host,
-                        app = info.app,
-                        protocol = info.protocol,
-                        screen = info.screen,
-                        port = port,
-                    )
+                    if (info == null) {
+                        android.util.Log.i("TvRemoteDiscovery", "ping $host:$port → 无响应")
+                        null
+                    } else {
+                        // 电视自报了端口就以它为准（可能被端口占用逼得退让过）
+                        val realPort = if (info.hasPort) info.port else port
+                        android.util.Log.i(
+                            "TvRemoteDiscovery",
+                            "ping $host:$port → ${info.title}（自报端口 $realPort）"
+                        )
+                        Found(
+                            host = host,
+                            app = info.title,
+                            protocol = info.protocol,
+                            screen = info.screen,
+                            port = realPort,
+                        )
+                    }
                 }
             }.awaitAll().filterNotNull()
         }
 
-        // 3) 边确认边回调：家里电视多、端口段也要扫，整体耗时会比只扫 8899 长
+        val onDefaultPort = verify(defaultHits)
+
+        // 第二步：补扫端口段。
+        //
+        // 覆盖两种情况：
+        //   a) 老版本电视端（不报端口）+ 端口退让到 8899 之外；
+        //   b) 新版本，但同一地址上还有第二台电视（端口退让到 8900）——
+        //      新协议只报"自己"的端口，同一地址的第二台仍要靠扫描。
+        //
+        // ⚠️ 排除要按「地址:端口」而不是按「地址」：
+        // 曾经按地址排除，结果 10.0.2.2:8899 应答后整个 10.0.2.2 被排除，
+        // 它上面的 8900 永远扫不到 —— 那正是"同一台路由下第二台电视找不到"的原因。
+        val alreadyFound = onDefaultPort.map { "${it.host}:${it.port}" }.toSet()
+        val otherPorts = (basePort + 1 until basePort + PORT_SCAN_SIZE).toList()
+        val onOtherPorts = if (otherPorts.isEmpty()) {
+            emptyList()
+        } else {
+            verify(scanHosts(hosts, otherPorts))
+                .filter { "${it.host}:${it.port}" !in alreadyFound }
+        }
+
+        android.util.Log.i("TvRemoteDiscovery", "确认到 ${onDefaultPort.size + onOtherPorts.size} 台")
+
+        // 边确认边回调，让界面能边扫边显示
         val found = ArrayList<Found>()
-        verified
+        (onDefaultPort + onOtherPorts)
+            .distinctBy { "${it.host}:${it.port}" }
             .sortedWith(compareBy({ it.host.substringAfterLast('.').toIntOrNull() ?: 0 }, { it.port }))
             .forEach { tv ->
                 found += tv
@@ -159,7 +188,14 @@ object TvRemoteDiscovery {
         list.firstOrNull { it.host == savedHost && it.port == savedPort }
 
     /** 端口能连上就认为可能是电视（真正的确认交给协议 ping）。 */
-    private fun portOpen(host: String, port: Int): Boolean = try {
+    private fun portOpen(host: String, port: Int): Boolean {
+        if (tryConnect(host, port)) return true
+        // 重试一次：刚扫过同地址的其它端口时，本地临时端口可能还没释放干净，
+        // 偶发会出现"明明开着却连不上"，那会让一台真实电视被漏掉。
+        return tryConnect(host, port)
+    }
+
+    private fun tryConnect(host: String, port: Int): Boolean = try {
         Socket().use { it.connect(InetSocketAddress(host, port), PROBE_TIMEOUT_MS) }
         true
     } catch (e: Exception) {

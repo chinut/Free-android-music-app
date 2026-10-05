@@ -1,5 +1,9 @@
 package com.example.music.ui.screens
 
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.music.data.tv.TvRemoteDiscovery
 import com.example.music.data.tv.TvRemotePrefs
 import com.example.music.data.tv.YanhuoRemote
@@ -86,6 +91,19 @@ fun TvRemoteScreen(onBack: () -> Unit) {
     var pickError by remember { mutableStateOf("") }
     var textToSend by remember { mutableStateOf("") }
     var sentHint by remember { mutableStateOf("") }
+    /** 局域网权限是否已被拒绝（拒绝后要引导去系统设置） */
+    var localNetDenied by remember { mutableStateOf(false) }
+    var permissionAsked by remember { mutableStateOf(false) }
+
+    // Android 16 / API 36 起，访问局域网是运行时权限。
+    // 没有它，App 内的 socket 连不上电视 —— 表现为一直「没找到电视」。
+    val needLocalNet = Build.VERSION.SDK_INT >= 36
+    val localNetPermission = "android.permission.ACCESS_LOCAL_NETWORK"
+
+    fun hasLocalNet(): Boolean =
+        !needLocalNet ||
+            ContextCompat.checkSelfPermission(context, localNetPermission) ==
+            PackageManager.PERMISSION_GRANTED
 
     /** 选中某台电视并连上。 */
     suspend fun useTv(host: String, port: Int, byUser: Boolean) {
@@ -134,7 +152,12 @@ fun TvRemoteScreen(onBack: () -> Unit) {
         }
 
         // 2) 扫描局域网，把**所有**电视都找出来
-        val list = TvRemoteDiscovery.discoverAll(context, prefs.port)
+        //    边扫边显示：家里电视多、端口段也要扫，整体耗时会比只扫 8899 长
+        val list = TvRemoteDiscovery.discoverAll(context, prefs.port) { partial ->
+            found = partial
+            // 还没扫完就已经不止一台了，先让用户挑着，不用干等
+            if (partial.size > 1 && !prefs.userChosen) picking = true
+        }
         found = list
         when {
             list.isEmpty() -> connected = false
@@ -144,15 +167,16 @@ fun TvRemoteScreen(onBack: () -> Unit) {
 
             else -> {
                 // 多台：之前选过的那台若还在，继续用它
-                val saved = TvRemoteDiscovery.findSaved(list, prefs.host)
+                val saved = TvRemoteDiscovery.findSaved(list, prefs.host, prefs.port)
                 val savedOk = if (prefs.userChosen && saved != null) {
-                    YanhuoRemote(host = saved.host, port = prefs.port, token = prefs.token).ping()
+                    YanhuoRemote(host = saved.host, port = saved.port, token = prefs.token).ping()
                 } else false
 
                 if (savedOk && saved != null) {
-                    client = YanhuoRemote(host = saved.host, port = prefs.port, token = prefs.token)
-                    connectedHost = saved.host
+                    client = YanhuoRemote(host = saved.host, port = saved.port, token = prefs.token)
+                    connectedHost = saved.subtitle
                     connected = true
+                    picking = false
                 } else {
                     // 没选过、或选过的那台不在了 → 让用户挑
                     picking = true
@@ -162,7 +186,24 @@ fun TvRemoteScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { connect() }
+    // 局域网权限的请求器（必须定义在 connect() 之后，回调里要调它）
+    val localNetLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        permissionAsked = true
+        localNetDenied = !granted
+        // 不论结果都继续：授权了就正常扫描，没授权会扫不到，界面已有对应提示
+        scope.launch { connect() }
+    }
+
+    LaunchedEffect(Unit) {
+        // 先要局域网权限，拿到（或被拒）之后再扫描
+        if (!hasLocalNet() && !permissionAsked) {
+            localNetLauncher.launch(localNetPermission)
+        } else {
+            connect()
+        }
+    }
 
     // 连上后每 5 秒心跳；断了自动重连
     LaunchedEffect(connected, connectedHost) {
@@ -212,8 +253,12 @@ fun TvRemoteScreen(onBack: () -> Unit) {
 
             if (connected == false && !picking) {
                 Text(
-                    "请确认手机与电视在同一 WiFi，且电视已开启「允许手机调试」",
-                    color = Color(0x77FFFFFF),
+                    if (localNetDenied) {
+                        "需要「访问本地网络」权限才能搜索电视，请到系统设置里允许"
+                    } else {
+                        "请确认手机与电视在同一 WiFi，且电视已开启「允许手机调试」"
+                    },
+                    color = if (localNetDenied) Color(0xFFFF9A9A) else Color(0x77FFFFFF),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 4.dp)
                 )

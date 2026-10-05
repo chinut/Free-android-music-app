@@ -10,6 +10,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+      ★ 局域网访问（Android 16 / API 36 起是运行时权限）
+
+      没有它，App 内的 socket 连不上同一局域网里的电视：
+      表现是 connect() 一直超时（shell 里却完全正常，因为 shell 不受此限制）。
+      电视遥控要靠它扫描并连接局域网里的焰火TV。
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
     <!-- ★ 高德地图定位权限 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />

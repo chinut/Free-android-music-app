@@ -9,6 +9,11 @@ build/
 # Local configuration file (sdk path, etc)
 local.properties
 
+# 签名配置（含口令，绝不能提交）
+keystore.properties
+*.jks
+*.keystore
+
 # Android Studio / IntelliJ
 .idea/
 *.iml

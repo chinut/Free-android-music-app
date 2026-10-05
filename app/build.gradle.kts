@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+}
+
+// 从项目根目录的 keystore.properties 读签名配置（该文件已 gitignore，不会提交）
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -23,9 +31,26 @@ android {
         }
     }
 
+    signingConfigs {
+        // 只有本机存在 keystore.properties 时才创建，保证别人 clone 后也能正常构建
+        if (keystoreProps.getProperty("storeFile") != null) {
+            create("release") {
+                // keystore 是 PKCS12 格式，必须显式声明，
+                // 否则 AGP 按 JKS 解析会报 "Given final block not properly padded"
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storeType = keystoreProps.getProperty("storeType") ?: "PKCS12"
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            // 有签名配置就用正式签名，避免打出未签名包
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
